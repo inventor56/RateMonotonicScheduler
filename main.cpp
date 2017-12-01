@@ -106,15 +106,16 @@ void *run_thread(void * param) {
         *passedInValues->counter += 1; //Increment respective counter
     }
 
-    sleep(1);
+    //sleep(1);
+
     if (*passedInValues->runAmount == 1)
-        cout << "you used to call me on my T1" << sched_getcpu() << endl;
+        cout << "This thread is T1. It is running on CPU: " << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 2)
-        cout << "you used to call me on my T2"  << sched_getcpu() << endl;
+        cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 4)
-        cout << "you used to call me on my T3"  << sched_getcpu() << endl;
+        cout << "This thread is T3. It is running on CPU: "  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 16)
-        cout << "you used to call me on my T4" << sched_getcpu() << endl;
+        cout << "This thread is T4. It is running on CPU: " << sched_getcpu() << endl;
     pthread_exit(nullptr);
 }
 
@@ -127,7 +128,7 @@ void *scheduler(void * param) {
 
     for (int i = 0; i < framePeriod; i++) {
 
-
+    // Kick off all four threads
         int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
 
 
@@ -135,7 +136,6 @@ void *scheduler(void * param) {
 
 
         int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
-
 
 
         int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
@@ -206,11 +206,18 @@ int main() {
     pthread_attr_setaffinity_np(&attr4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
 
     // May need to swap these and put them below setschedparam
-    param0.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param1.__sched_priority = 109; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param2.__sched_priority = 108; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param3.__sched_priority = 107; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param4.__sched_priority = 106; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param0.__sched_priority = 150; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param1.__sched_priority = 140; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param2.__sched_priority = 130; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param3.__sched_priority = 120; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param4.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+
+    /* Set Policy
+    pthread_attr_setschedpolicy(&attr0, SCHED_OTHER);
+    pthread_attr_setschedpolicy(&attr1, SCHED_OTHER);
+    pthread_attr_setschedpolicy(&attr2, SCHED_OTHER);
+    pthread_attr_setschedpolicy(&attr3, SCHED_OTHER);
+    pthread_attr_setschedpolicy(&attr4, SCHED_OTHER); */
 
     // Set thread priority
     pthread_attr_setschedparam(&attr0, &param0);
@@ -218,6 +225,13 @@ int main() {
     pthread_attr_setschedparam(&attr2, &param2);
     pthread_attr_setschedparam(&attr3, &param3);
     pthread_attr_setschedparam(&attr4, &param4);
+
+    // Oh! You need to make sure you use the attributes object! This is where the problem lies
+    pthread_attr_setinheritsched(&attr0, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setinheritsched(&attr1, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setinheritsched(&attr2, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setinheritsched(&attr3, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setinheritsched(&attr4, PTHREAD_EXPLICIT_SCHED);
 
     //Put in counters
     tValArr[0].counter = &counterT1;
@@ -240,11 +254,8 @@ int main() {
     //Temp var
     int tempParam = 0;
 
-
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, &tempParam);
-
-
 
     // Join scheduler thread at end of program execution
     pthread_join(schedulerThread, nullptr);
