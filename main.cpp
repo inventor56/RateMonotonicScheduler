@@ -137,12 +137,12 @@ void *run_thread(void * param) {
     if (*((threadValues*)param)->runAmount == 16)
         cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
 
-
+    /*
     auto time2 = chrono::high_resolution_clock::now();
     auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
     chrono::duration<double, milli> fms_conversion = (time2 - time1);
     cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl;
+    cout << fms_conversion.count() << " milliseconds" << endl; */
 
 
     pthread_exit(nullptr);
@@ -154,20 +154,27 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
-    pthread_t T0[periodT0];
-    pthread_t T1[periodT1];
-    pthread_t T2[periodT2];
-    pthread_t T3[periodT3];
+    pthread_t T0;
+    pthread_t T1;
+    pthread_t T2;
+    pthread_t T3;
 
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
-        //if(periodTime % ) //0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
-            int tid0 = pthread_create(&T0[periodTime], &attr1, run_thread, (void *) &tValArr[0]);
-        if(periodTime == 0, periodTime == 2, periodTime == 4, periodTime == 6, periodTime == 8, periodTime == 10, periodTime == 12, periodTime == 14) //0,2,4,6,8,10,12,14 (8 times)
-            int tid1 = pthread_create(&T1[periodTime], &attr2, run_thread, (void *) &tValArr[1]);
-        if(periodTime == 0, periodTime == 4, periodTime == 8, periodTime == 12) //0,4,8,12 (4 times)
-            int tid2 = pthread_create(&T2[periodTime], &attr3, run_thread, (void *) &tValArr[2]);
-        if(periodTime == 0) //0 (1 time)
-            int tid3 = pthread_create(&T3[periodTime], &attr4, run_thread, (void *) &tValArr[3]);
+        //if(periodTime % ) 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
+        pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+        sem_post(&sem1);
+        if(periodTime == 0 || periodTime == 2 || periodTime == 4 || periodTime == 6 || periodTime == 8 || periodTime == 10 || periodTime == 12 || periodTime == 14) { //0,2,4,6,8,10,12,14 (8 times)
+            pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
+            sem_post(&sem2);
+        }
+        if(periodTime == 0 || periodTime == 4 || periodTime == 8 || periodTime == 12) { //0,4,8,12 (4 times)
+            pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
+            sem_post(&sem3);
+        }
+        if(periodTime == 0) { //0 (1 time)
+            pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
+            sem_post(&sem4);
+        }
 
         sleep(1);
     }
@@ -183,17 +190,18 @@ void *scheduler(void * param) {
     int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]); */
 
 
+    /*
     sem_post(&sem1);
-    //pthread_join(T0, nullptr);
+    pthread_join(T0, nullptr);
 
     sem_post(&sem2);
-    //pthread_join(T1, nullptr);
+    pthread_join(T1, nullptr);
 
     sem_post(&sem3);
-    //pthread_join(T2, nullptr);
+    pthread_join(T2, nullptr);
 
     sem_post(&sem4);
-    //pthread_join(T3, nullptr);
+    pthread_join(T3, nullptr); */
     // Join threads
 
     pthread_exit(nullptr);
