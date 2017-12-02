@@ -28,6 +28,12 @@ int runAmntT1 = 2; // Thread 1 runs doWork() 2 times
 int runAmntT2 = 4; // Thread 2 runs doWork() 4 times
 int runAmntT3 = 16; // Thread 3 runs doWork() 16 times
 
+// Times to run each doWork (according to the thread it is in)
+int periodT0 = 1; // Thread 0 runs doWork() 1 time
+int periodT1 = 2; // Thread 1 runs doWork() 2 times
+int periodT2 = 4; // Thread 2 runs doWork() 4 times
+int periodT3 = 16; // Thread 3 runs doWork() 16 times
+
 // Frame period for scheduler
 int framePeriod = 16;
 
@@ -36,6 +42,12 @@ int counterT0;
 int counterT1;
 int counterT2;
 int counterT3;
+
+// Missed deadlines for each thread
+int missedDeadlineT0;
+int missedDeadlineT1;
+int missedDeadlineT2;
+int missedDeadlineT3;
 
 // Scheduling Parameters
 sched_param param0;
@@ -47,15 +59,19 @@ sched_param param4;
 
 // Pthreads
 pthread_t schedulerThread;
+/*
 pthread_t T0;
 pthread_t T1;
 pthread_t T2;
-pthread_t T3;
+pthread_t T3; */
 
 //CPU
 cpu_set_t cpu;
 
-// Semaphores (for synchronization)
+// Semaphore (for scheduler synchronization)
+sem_t semScheduler;
+
+// Semaphores (for thread synchronization)
 sem_t sem1;
 sem_t sem2;
 sem_t sem3;
@@ -97,15 +113,19 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
 //////////////////////////////////////
 
 void *run_thread(void * param) {
+
     struct threadValues *passedInValues;
     passedInValues = (threadValues*) param;
+
+    auto time1 = chrono::high_resolution_clock::now();
 
     sem_wait(passedInValues->semaphore);
     for (int i = 0; i < *passedInValues->runAmount; i++) {
         doWork(); // Do busy work
-        *passedInValues->counter += 1; //Increment respective counter
     }
+    *passedInValues->counter += 1; //Increment respective counter
 
+    // We don't want to have the sleep here, this is just for testing purposes
     //sleep(1);
 
     if (*passedInValues->runAmount == 1)
@@ -116,6 +136,15 @@ void *run_thread(void * param) {
         cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 16)
         cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
+
+
+    auto time2 = chrono::high_resolution_clock::now();
+    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
+    chrono::duration<double, milli> fms_conversion = (time2 - time1);
+    cout << wms_conversion.count() << " whole seconds" << endl;
+    cout << fms_conversion.count() << " milliseconds" << endl;
+
+
     pthread_exit(nullptr);
 }
 
@@ -124,42 +153,48 @@ void *run_thread(void * param) {
 //////////////////////////////////////
 
 void *scheduler(void * param) {
-    auto time1 = chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < framePeriod; i++) {
+    pthread_t T0[periodT0];
+    pthread_t T1[periodT1];
+    pthread_t T2[periodT2];
+    pthread_t T3[periodT3];
 
-    // Kick off all four threads
-        int tid0 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+    for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
+        if(periodTime) //0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
+            int tid0 = pthread_create(&T0[periodTime], &attr1, run_thread, (void *) &tValArr[0]);
+        if(periodTime) //0,2,4,6,8,10,12,14 (8 times)
+            int tid1 = pthread_create(&T1[periodTime], &attr2, run_thread, (void *) &tValArr[1]);
+        if(periodTime) //0,4,8,12 (4 times)
+            int tid2 = pthread_create(&T2[periodTime], &attr3, run_thread, (void *) &tValArr[2]);
+        if(periodTime) //0 (1 time)
+            int tid3 = pthread_create(&T3[periodTime], &attr4, run_thread, (void *) &tValArr[3]);
 
-
-        int tid1 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
-
-
-        int tid2 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
-
-
-        int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
-
-        sem_post(&sem1);
-        sem_post(&sem2);
-        sem_post(&sem3);
-        sem_post(&sem4);
-
-
-
-        // Join threads
-        pthread_join(T0, nullptr);
-        pthread_join(T1, nullptr);
-        pthread_join(T2, nullptr);
-        pthread_join(T3, nullptr);
-
-
+        sleep(1);
     }
-    auto time2 = chrono::high_resolution_clock::now();
-    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-    chrono::duration<double, milli> fms_conversion = (time2 - time1);
-    cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl;
+
+    /* Kick off all four threads
+    int tid0 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+
+
+    int tid1 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
+
+    int tid2 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
+
+    int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]); */
+
+
+    sem_post(&sem1);
+    pthread_join(T0, nullptr);
+
+    sem_post(&sem2);
+    pthread_join(T1, nullptr);
+
+    sem_post(&sem3);
+    pthread_join(T2, nullptr);
+
+    sem_post(&sem4);
+    pthread_join(T3, nullptr);
+    // Join threads
 
     pthread_exit(nullptr);
 }
@@ -173,17 +208,26 @@ int main() {
         }
     }
 
-    //Initialize semaphores (all shared and all unlocked to start)
-    sem_init(&sem1, 1, 1);
-    sem_init(&sem2, 1, 1);
-    sem_init(&sem3, 1, 1);
-    sem_init(&sem4, 1, 1);
+    //Initialize scheduler semaphore (shared and unlocked to start)
+    sem_init(&semScheduler, 1, 1);
+
+    //Initialize thread semaphores (all shared and all locked to start)
+    sem_init(&sem1, 1, 0);
+    sem_init(&sem2, 1, 0);
+    sem_init(&sem3, 1, 0);
+    sem_init(&sem4, 1, 0);
 
     // Initialize counters
     counterT0 = 0;
     counterT1 = 0;
     counterT2 = 0;
     counterT3 = 0;
+
+    // Initialize deadlines
+    missedDeadlineT0 = 0;
+    missedDeadlineT1 = 0;
+    missedDeadlineT2 = 0;
+    missedDeadlineT3 = 0;
 
 
     // Set CPU priority to be the same for all threads;
@@ -251,21 +295,18 @@ int main() {
     tValArr[2].semaphore = &sem3;
     tValArr[3].semaphore = &sem4;
 
-    //Temp var
-    int tempParam = 0;
-
     // CREATE SCHEDULER
-    int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, &tempParam);
+    int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
 
     // Join scheduler thread at end of program execution
     pthread_join(schedulerThread, nullptr);
 
 
     // Print out results
-    cout << "T0 Count: " << counterT0 << endl;
-    cout << "T1 Count: " << counterT1 << endl;
-    cout << "T2 Count: " << counterT2 << endl;
-    cout << "T3 Count: " << counterT3 << endl;
+    cout << "T0 Ran " << counterT0 << " Times" << endl;
+    cout << "T1 Ran " << counterT1 << " Times" << endl;
+    cout << "T2 Ran " << counterT2 << " Times" << endl;
+    cout << "T3 Ran " << counterT3 << " Times" << endl;
 
 
     // Now test ms clock values with Chrono
