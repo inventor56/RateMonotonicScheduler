@@ -206,18 +206,18 @@ int main() {
     pthread_attr_setaffinity_np(&attr4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
 
     // May need to swap these and put them below setschedparam
-    param0.__sched_priority = 150; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param1.__sched_priority = 140; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param2.__sched_priority = 130; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param3.__sched_priority = 120; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param4.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param0.__sched_priority = sched_get_priority_max(SCHED_FIFO); // Max Priority for the system fifo scheduler (99)
+    param1.__sched_priority = 90; // 2nd highest priority
+    param2.__sched_priority = 80; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param3.__sched_priority = 70; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param4.__sched_priority = 60; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
 
-    /* Set Policy
-    pthread_attr_setschedpolicy(&attr0, SCHED_OTHER);
-    pthread_attr_setschedpolicy(&attr1, SCHED_OTHER);
-    pthread_attr_setschedpolicy(&attr2, SCHED_OTHER);
-    pthread_attr_setschedpolicy(&attr3, SCHED_OTHER);
-    pthread_attr_setschedpolicy(&attr4, SCHED_OTHER); */
+    // Set Policy
+    pthread_attr_setschedpolicy(&attr0, SCHED_FIFO);
+    pthread_attr_setschedpolicy(&attr1, SCHED_FIFO);
+    pthread_attr_setschedpolicy(&attr2, SCHED_FIFO);
+    pthread_attr_setschedpolicy(&attr3, SCHED_FIFO);
+    pthread_attr_setschedpolicy(&attr4, SCHED_FIFO);
 
     // Set thread priority
     pthread_attr_setschedparam(&attr0, &param0);
