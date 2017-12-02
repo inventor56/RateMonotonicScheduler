@@ -1,13 +1,15 @@
 #include <sched.h>
 #include <iostream>
 #include <chrono>
-#include <cstdio>
+#include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <semaphore.h>
-#include <csignal>
-#include <ctime>
+#include <signal.h>
+#include <time.h>
+#include <stdlib.h>
 #include <sys/sysinfo.h>
+#include <sys/time.h>
 
 using namespace std;
 // Rate Monotonic Scheduler
@@ -48,6 +50,8 @@ int programPeriod = 10;
 
 int nanosecondConversion = 1000000; // This is equal to 1 ms
 int periodUnitMS = 10; // 1 unit of time, according to project directions
+
+int runtimeTracker = 0; // Keeps track of how many units of time have gone by for the scheduling program
 
 ////////////////////////////////////////////
 
@@ -122,6 +126,17 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
         }
     }
 }
+
+//////////////////////////////
+// Timer Handling
+//////////////////////////////
+
+// Posts semaphore following time restrictions
+void timerHandler(int sig, siginfo_t *si, void *uc )
+{
+    printf("I am timer %s\n", (char *) si->si_value.sival_ptr);
+}
+
 
 //////////////////////////////////////
 // Threading Function
@@ -283,7 +298,7 @@ int main() {
     pthread_attr_setschedparam(&attr3, &param3);
     pthread_attr_setschedparam(&attr4, &param4);
 
-    // Oh! You need to make sure you use the attributes object! This is where the problem lies
+    // Oh! You need to make sure you use the attributes object!
     pthread_attr_setinheritsched(&attr0, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setinheritsched(&attr1, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setinheritsched(&attr2, PTHREAD_EXPLICIT_SCHED);
@@ -309,13 +324,24 @@ int main() {
     tValArr[3].semaphore = &sem4;
 
 
+    long oneUnitOfTime = nanosecondConversion*periodUnitMS;
+    long totalRuntime = oneUnitOfTime*programPeriod*nanosecondConversion // 1 unit(10 ms) x 16 unit frame period  x 10 unit program period
+
+
+    sigevent te;
+    struct sigaction sa;
+    int sigNo = SIGRTMIN;
+
     sigevent sig;
 
     timer_t intervalTimer;
     itimerspec its;
 
+    sa.sa_sigaction = timerhandler;
+
+
     sig.sigev_notify = SIGEV_NONE;
-    its.it_value.tv_nsec = periodUnitMS*programPeriod*framePeriod*nanosecondConversion; // Expiration time
+    its.it_value.tv_nsec = oneUnitOfTime; // Expiration time
     its.it_interval.tv_nsec = its.it_value.tv_nsec; // Same as above and it repeats
 
     //timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
@@ -325,7 +351,6 @@ int main() {
     pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
     pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
     pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
-
 
 
     // CREATE SCHEDULER
