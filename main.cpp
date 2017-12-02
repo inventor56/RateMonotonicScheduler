@@ -17,25 +17,25 @@ using namespace std;
 
 // Thread attributes
 pthread_attr_t attr0; // For main thread
-pthread_attr_t attr1; // For T1 thread
-pthread_attr_t attr2; // For T2 thread
-pthread_attr_t attr3; // For T3 thread
-pthread_attr_t attr4; // For T4 thread
+pthread_attr_t attr1; // For T0 thread
+pthread_attr_t attr2; // For T1 thread
+pthread_attr_t attr3; // For T1 thread
+pthread_attr_t attr4; // For T2 thread
 
 // Times to run each doWork (according to the thread it is in)
-int runAmntT1 = 1; // Thread 1 runs doWork() 1 time
-int runAmntT2 = 2; // Thread 2 runs doWork() 2 times
-int runAmntT3 = 4; // Thread 3 runs doWork() 4 times
-int runAmntT4 = 16; // Thread 4 runs doWork() 16 times
+int runAmntT0 = 1; // Thread 0 runs doWork() 1 time
+int runAmntT1 = 2; // Thread 1 runs doWork() 2 times
+int runAmntT2 = 4; // Thread 2 runs doWork() 4 times
+int runAmntT3 = 16; // Thread 3 runs doWork() 16 times
 
 // Frame period for scheduler
 int framePeriod = 16;
 
 // Counters for each thread
+int counterT0;
 int counterT1;
 int counterT2;
 int counterT3;
-int counterT4;
 
 // Scheduling Parameters
 sched_param param0;
@@ -47,10 +47,10 @@ sched_param param4;
 
 // Pthreads
 pthread_t schedulerThread;
+pthread_t T0;
 pthread_t T1;
 pthread_t T2;
 pthread_t T3;
-pthread_t T4;
 
 //CPU
 cpu_set_t cpu;
@@ -109,13 +109,13 @@ void *run_thread(void * param) {
     //sleep(1);
 
     if (*passedInValues->runAmount == 1)
-        cout << "This thread is T1. It is running on CPU: " << sched_getcpu() << endl;
+        cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 2)
-        cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
+        cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 4)
-        cout << "This thread is T3. It is running on CPU: "  << sched_getcpu() << endl;
+        cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 16)
-        cout << "This thread is T4. It is running on CPU: " << sched_getcpu() << endl;
+        cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
     pthread_exit(nullptr);
 }
 
@@ -129,16 +129,16 @@ void *scheduler(void * param) {
     for (int i = 0; i < framePeriod; i++) {
 
     // Kick off all four threads
-        int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
+        int tid1 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
 
 
-        int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
+        int tid2 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
 
 
-        int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
+        int tid3 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
 
 
-        int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
+        int tid4 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
 
         sem_post(&sem1);
         sem_post(&sem2);
@@ -148,10 +148,10 @@ void *scheduler(void * param) {
 
 
         // Join threads
+        pthread_join(T0, nullptr);
         pthread_join(T1, nullptr);
         pthread_join(T2, nullptr);
         pthread_join(T3, nullptr);
-        pthread_join(T4, nullptr);
 
 
     }
@@ -180,10 +180,10 @@ int main() {
     sem_init(&sem4, 1, 1);
 
     // Initialize counters
+    counterT0 = 0;
     counterT1 = 0;
     counterT2 = 0;
     counterT3 = 0;
-    counterT4 = 0;
 
 
     // Set CPU priority to be the same for all threads;
@@ -234,16 +234,16 @@ int main() {
     pthread_attr_setinheritsched(&attr4, PTHREAD_EXPLICIT_SCHED);
 
     //Put in counters
-    tValArr[0].counter = &counterT1;
-    tValArr[1].counter = &counterT2;
-    tValArr[2].counter = &counterT3;
-    tValArr[3].counter = &counterT4;
+    tValArr[0].counter = &counterT0;
+    tValArr[1].counter = &counterT1;
+    tValArr[2].counter = &counterT2;
+    tValArr[3].counter = &counterT3;
 
     // Put in run time amount
-    tValArr[0].runAmount = &runAmntT1;
-    tValArr[1].runAmount = &runAmntT2;
-    tValArr[2].runAmount = &runAmntT3;
-    tValArr[3].runAmount = &runAmntT4;
+    tValArr[0].runAmount = &runAmntT0;
+    tValArr[1].runAmount = &runAmntT1;
+    tValArr[2].runAmount = &runAmntT2;
+    tValArr[3].runAmount = &runAmntT3;
 
     // Put in semaphores
     tValArr[0].semaphore = &sem1;
@@ -262,10 +262,10 @@ int main() {
 
 
     // Print out results
+    cout << "T0 Count: " << counterT0 << endl;
     cout << "T1 Count: " << counterT1 << endl;
     cout << "T2 Count: " << counterT2 << endl;
     cout << "T3 Count: " << counterT3 << endl;
-    cout << "T4 Count: " << counterT4 << endl;
 
 
     // Now test ms clock values with Chrono
