@@ -329,7 +329,7 @@ int main() {
     its.it_value.tv_nsec = periodUnitMS*programPeriod*framePeriod*nanosecondConversion; // Expiration time
     its.it_interval.tv_nsec = its.it_value.tv_nsec; // Same as above and it repeats
 
-    timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
+    //timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
 
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
@@ -339,7 +339,7 @@ int main() {
     //
     //      sem_post(&semScheduler)
 
-    timer_settime(intervalTimer, 0, &its, nullptr);
+    //timer_settime(intervalTimer, 0, &its, nullptr);
 
     // Join scheduler thread at end of program execution
     pthread_join(schedulerThread, nullptr);
