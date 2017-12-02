@@ -134,7 +134,9 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
 // Posts semaphore following time restrictions
 void timerHandler(int sig, siginfo_t *si, void *uc )
 {
-    printf("I am timer %s\n", (char *) si->si_value.sival_ptr);
+    runtimeTracker++; // increment tracker
+    cout << "Time going now" << endl;
+    sem_post(&semScheduler);
 }
 
 
@@ -187,9 +189,8 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
-    sem_wait(&semScheduler); //
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
-        sleep(1);
+        sem_wait(&semScheduler);
         //sem_wait(&semScheduler); // Wait until timer kicks in
 
         // Check flags and see if there are any overruns
@@ -324,27 +325,7 @@ int main() {
     tValArr[3].semaphore = &sem4;
 
 
-    long oneUnitOfTime = nanosecondConversion*periodUnitMS;
-    long totalRuntime = oneUnitOfTime*programPeriod*nanosecondConversion // 1 unit(10 ms) x 16 unit frame period  x 10 unit program period
 
-
-    sigevent te;
-    struct sigaction sa;
-    int sigNo = SIGRTMIN;
-
-    sigevent sig;
-
-    timer_t intervalTimer;
-    itimerspec its;
-
-    sa.sa_sigaction = timerhandler;
-
-
-    sig.sigev_notify = SIGEV_NONE;
-    its.it_value.tv_nsec = oneUnitOfTime; // Expiration time
-    its.it_interval.tv_nsec = its.it_value.tv_nsec; // Same as above and it repeats
-
-    //timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
 
     // Create pthreads here in main thread - Semaphores will syncronize them, as the scheduler will dispatch (unlock) each one accordingly
     pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
@@ -356,8 +337,6 @@ int main() {
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
 
-    sem_post(&semScheduler);
-
     // Start timer
     // while (timer < 160*100 ms)
     //
@@ -365,7 +344,46 @@ int main() {
 
     //timer_settime(intervalTimer, 0, &its, nullptr);
 
+
+    ////////////////////////
+    // Set up and run timer
+    ///////////////////////
+    long oneUnitOfTime = nanosecondConversion*periodUnitMS;
+    long totalRuntime = oneUnitOfTime*programPeriod*nanosecondConversion; // 1 unit(10 ms) x 16 unit frame period  x 10 unit program period
+
+
+    struct sigevent sig;
+    struct sigaction sa;
+    int sigNo = SIGRTMIN;
+
+    timer_t unitTimer;
+    itimerspec its;
+
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_sigaction = timerHandler;
+    sigemptyset(&sa.sa_mask);
+
+    sigaction(sigNo, &sa, nullptr);
+
+    sig.sigev_notify = SIGEV_SIGNAL;
+    sig.sigev_signo = sigNo;
+    sig.sigev_value.sival_ptr = nullptr;
+
+    its.it_value.tv_sec = 1;
+    its.it_value.tv_nsec = 0; // Expiration time  oneUnitOfTime
+    its.it_interval.tv_sec = 1;
+    its.it_interval.tv_nsec = 0; // Same as above and it repeats  its.it_value.tv_nsec
+
+    //Create Timer
+    timer_create(CLOCK_REALTIME, &sig, &unitTimer);
+
+    if (timer_settime(unitTimer, 0, &its, nullptr) == -1) // Start Timer
+        cout << "FAILURE" << endl;
+
+
+    ///////////////////////////////////////////////////////
     // Join scheduler thread at end of program execution
+    ///////////////////////////////////////////////////////
     pthread_join(schedulerThread, nullptr);
 
 
@@ -374,7 +392,6 @@ int main() {
     cout << "T1 Ran " << counterT1 << " Times" << endl;
     cout << "T2 Ran " << counterT2 << " Times" << endl;
     cout << "T3 Ran " << counterT3 << " Times" << endl;
-
 
     return 0;
 }
