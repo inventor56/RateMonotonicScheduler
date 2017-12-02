@@ -114,27 +114,27 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
 
 void *run_thread(void * param) {
 
-    struct threadValues *passedInValues;
-    passedInValues = (threadValues*) param;
+    /*struct threadValues *passedInValues;
+    passedInValues = (threadValues*) param; */
 
-    auto time1 = chrono::high_resolution_clock::now();
+    //auto time1 = chrono::high_resolution_clock::now();
 
-    sem_wait(passedInValues->semaphore);
-    for (int i = 0; i < *passedInValues->runAmount; i++) {
+    sem_wait(((threadValues*)param)->semaphore);
+    for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
         doWork(); // Do busy work
     }
-    *passedInValues->counter += 1; //Increment respective counter
+    *((threadValues*)param)->counter += 1; //Increment respective counter
 
     // We don't want to have the sleep here, this is just for testing purposes
     //sleep(1);
 
-    if (*passedInValues->runAmount == 1)
+    if (*((threadValues*)param)->runAmount == 1)
         cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 2)
+    if (*((threadValues*)param)->runAmount == 2)
         cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 4)
+    if (*((threadValues*)param)->runAmount == 4)
         cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 16)
+    if (*((threadValues*)param)->runAmount == 16)
         cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
 
 
@@ -160,13 +160,13 @@ void *scheduler(void * param) {
     pthread_t T3[periodT3];
 
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
-        if(periodTime) //0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
+        //if(periodTime % ) //0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
             int tid0 = pthread_create(&T0[periodTime], &attr1, run_thread, (void *) &tValArr[0]);
-        if(periodTime) //0,2,4,6,8,10,12,14 (8 times)
+        if(periodTime == 0, periodTime == 2, periodTime == 4, periodTime == 6, periodTime == 8, periodTime == 10, periodTime == 12, periodTime == 14) //0,2,4,6,8,10,12,14 (8 times)
             int tid1 = pthread_create(&T1[periodTime], &attr2, run_thread, (void *) &tValArr[1]);
-        if(periodTime) //0,4,8,12 (4 times)
+        if(periodTime == 0, periodTime == 4, periodTime == 8, periodTime == 12) //0,4,8,12 (4 times)
             int tid2 = pthread_create(&T2[periodTime], &attr3, run_thread, (void *) &tValArr[2]);
-        if(periodTime) //0 (1 time)
+        if(periodTime == 0) //0 (1 time)
             int tid3 = pthread_create(&T3[periodTime], &attr4, run_thread, (void *) &tValArr[3]);
 
         sleep(1);
@@ -184,16 +184,16 @@ void *scheduler(void * param) {
 
 
     sem_post(&sem1);
-    pthread_join(T0, nullptr);
+    //pthread_join(T0, nullptr);
 
     sem_post(&sem2);
-    pthread_join(T1, nullptr);
+    //pthread_join(T1, nullptr);
 
     sem_post(&sem3);
-    pthread_join(T2, nullptr);
+    //pthread_join(T2, nullptr);
 
     sem_post(&sem4);
-    pthread_join(T3, nullptr);
+    //pthread_join(T3, nullptr);
     // Join threads
 
     pthread_exit(nullptr);
