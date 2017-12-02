@@ -129,16 +129,16 @@ void *scheduler(void * param) {
     for (int i = 0; i < framePeriod; i++) {
 
     // Kick off all four threads
-        int tid1 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+        int tid0 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
 
 
-        int tid2 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
+        int tid1 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
 
 
-        int tid3 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
+        int tid2 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
 
 
-        int tid4 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
+        int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
 
         sem_post(&sem1);
         sem_post(&sem2);
