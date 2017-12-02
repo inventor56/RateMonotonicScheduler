@@ -131,33 +131,36 @@ void *run_thread(void * param) {
 
     /*struct threadValues *passedInValues;
     passedInValues = (threadValues*) param; */
-
+    bool test = true;
     //auto time1 = chrono::high_resolution_clock::now();
 
-    sem_wait(((threadValues*)param)->semaphore);
-    for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
-        doWork(); // Do busy work
+    while(true) {
+        sem_wait(((threadValues*)param)->semaphore);
+        for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
+            doWork(); // Do busy work
+        }
+        *((threadValues*)param)->counter += 1; //Increment respective counter
+
+        // We don't want to have the sleep here, this is just for testing purposes
+        //sleep(1);
+
+        if (*((threadValues*)param)->runAmount == runAmntT0)
+            cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
+        if (*((threadValues*)param)->runAmount == runAmntT1)
+            cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
+        if (*((threadValues*)param)->runAmount == runAmntT2)
+            cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
+        if (*((threadValues*)param)->runAmount == runAmntT3)
+            cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
+
+        /*
+        auto time2 = chrono::high_resolution_clock::now();
+        auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
+        chrono::duration<double, milli> fms_conversion = (time2 - time1);
+        cout << wms_conversion.count() << " whole seconds" << endl;
+        cout << fms_conversion.count() << " milliseconds" << endl; */
     }
-    *((threadValues*)param)->counter += 1; //Increment respective counter
 
-    // We don't want to have the sleep here, this is just for testing purposes
-    //sleep(1);
-
-    if (*((threadValues*)param)->runAmount == runAmntT0)
-        cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == runAmntT1)
-        cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == runAmntT2)
-        cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == runAmntT3)
-        cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
-
-    /*
-    auto time2 = chrono::high_resolution_clock::now();
-    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-    chrono::duration<double, milli> fms_conversion = (time2 - time1);
-    cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl; */
 
 
     pthread_exit(nullptr);
@@ -169,6 +172,7 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
+    sem_wait(&semScheduler); //
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
         sleep(1);
         //sem_wait(&semScheduler); // Wait until timer kicks in
@@ -178,18 +182,18 @@ void *scheduler(void * param) {
             //cout << "eurakeua first time" << endl;
 
         //if(periodTime % ) 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
-        pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+        // Post to the respective semaphore, and allow execution of T0
         sem_post(&sem1);
         if(periodTime == 0 || periodTime == 2 || periodTime == 4 || periodTime == 6 || periodTime == 8 || periodTime == 10 || periodTime == 12 || periodTime == 14) { //0,2,4,6,8,10,12,14 (8 times)
-            pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
+            // Post to the respective semaphore, and allow execution of T1
             sem_post(&sem2);
         }
         if(periodTime == 0 || periodTime == 4 || periodTime == 8 || periodTime == 12) { //0,4,8,12 (4 times)
-            pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
+            // Post to the respective semaphore, and allow execution of T2
             sem_post(&sem3);
         }
         if(periodTime == 0) { //0 (1 time)
-            pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
+            // Post to the respective semaphore, and allow execution of T3
             sem_post(&sem4);
         }
 
@@ -204,21 +208,6 @@ void *scheduler(void * param) {
     int tid2 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
 
     int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]); */
-
-
-    /*
-    sem_post(&sem1);
-    pthread_join(T0, nullptr);
-
-    sem_post(&sem2);
-    pthread_join(T1, nullptr);
-
-    sem_post(&sem3);
-    pthread_join(T2, nullptr);
-
-    sem_post(&sem4);
-    pthread_join(T3, nullptr); */
-    // Join threads
 
     pthread_exit(nullptr);
 }
@@ -331,8 +320,18 @@ int main() {
 
     //timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
 
+    // Create pthreads here in main thread - Semaphores will syncronize them, as the scheduler will dispatch (unlock) each one accordingly
+    pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
+    pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
+    pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
+    pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
+
+
+
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
+
+    sem_post(&semScheduler);
 
     // Start timer
     // while (timer < 160*100 ms)
