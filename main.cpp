@@ -23,10 +23,10 @@ pthread_attr_t attr3; // For T1 thread
 pthread_attr_t attr4; // For T2 thread
 
 // Times to run each doWork (according to the thread it is in)
-int runAmntT0 = 1; // Thread 0 runs doWork() 1 time
-int runAmntT1 = 2; // Thread 1 runs doWork() 2 times
-int runAmntT2 = 4; // Thread 2 runs doWork() 4 times
-int runAmntT3 = 16; // Thread 3 runs doWork() 16 times
+long runAmntT0 = 1; // Thread 0 runs doWork() 1 time
+long runAmntT1 = 2; // Thread 1 runs doWork() 2 times
+long runAmntT2 = 400000000000000000; // Thread 2 runs doWork() 4 times
+long runAmntT3 = 16; // Thread 3 runs doWork() 16 times
 
 // Times to run each doWork (according to the thread it is in)
 int periodT0 = 1; // Thread 0 runs doWork() 1 time
@@ -84,7 +84,7 @@ int doWorkMatrix[10][10]; // 10x10 matrix for do work
 // Struct: For passing in specific thread info
 /////////////////////////////////////////////////
 struct threadValues {
-    int* runAmount;
+    long* runAmount;
     int* counter;
     sem_t* semaphore;
 };
@@ -128,13 +128,13 @@ void *run_thread(void * param) {
     // We don't want to have the sleep here, this is just for testing purposes
     //sleep(1);
 
-    if (*((threadValues*)param)->runAmount == 1)
+    if (*((threadValues*)param)->runAmount == runAmntT0)
         cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == 2)
+    if (*((threadValues*)param)->runAmount == runAmntT1)
         cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == 4)
+    if (*((threadValues*)param)->runAmount == runAmntT2)
         cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
-    if (*((threadValues*)param)->runAmount == 16)
+    if (*((threadValues*)param)->runAmount == runAmntT3)
         cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
 
     /*
@@ -154,12 +154,20 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
-    pthread_t T0;
-    pthread_t T1;
-    pthread_t T2;
-    pthread_t T3;
+    // Pthreads for the scheduler. Initially set to 0 (if they exist, you must check to see if they have hit an overrun condition via a flag)
+    pthread_t T0 = 0;
+    pthread_t T1 = 0;
+    pthread_t T2 = 0;
+    pthread_t T3 = 0;
 
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
+        sleep(1);
+        //sem_wait(&semScheduler); // Wait until timer kicks in
+
+        // Check flags and see if there are any overruns
+        //if(T0 != 0 && )
+            //cout << "eurakeua first time" << endl;
+
         //if(periodTime % ) 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
         pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
         sem_post(&sem1);
@@ -176,7 +184,6 @@ void *scheduler(void * param) {
             sem_post(&sem4);
         }
 
-        sleep(1);
     }
 
     /* Kick off all four threads
@@ -216,8 +223,8 @@ int main() {
         }
     }
 
-    //Initialize scheduler semaphore (shared and unlocked to start)
-    sem_init(&semScheduler, 1, 1);
+    //Initialize scheduler semaphore (shared and locked to start)
+    sem_init(&semScheduler, 1, 0);
 
     //Initialize thread semaphores (all shared and all locked to start)
     sem_init(&sem1, 1, 0);
@@ -306,6 +313,11 @@ int main() {
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
 
+    // Start timer
+    // while (timer < 160*100 ms)
+    //
+    //      sem_post(&semScheduler)
+
     // Join scheduler thread at end of program execution
     pthread_join(schedulerThread, nullptr);
 
@@ -316,20 +328,6 @@ int main() {
     cout << "T2 Ran " << counterT2 << " Times" << endl;
     cout << "T3 Ran " << counterT3 << " Times" << endl;
 
-
-    // Now test ms clock values with Chrono
-    auto time1 = chrono::high_resolution_clock::now();
-    // Let's test a bunch
-    //for (int test = 0; test < 10000; test++)
-    doWork();
-    auto time2 = chrono::high_resolution_clock::now();
-    // Convert to MS (Whole Milliseconds) with duration cast
-    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-    // Convert to Fractional MS with duration
-    chrono::duration<double, milli> fms_conversion = (time2 - time1);
-
-    cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl;
 
     return 0;
 }
