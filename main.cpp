@@ -5,6 +5,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <csignal>
+#include <ctime>
 #include <sys/sysinfo.h>
 
 using namespace std;
@@ -25,7 +27,7 @@ pthread_attr_t attr4; // For T2 thread
 // Times to run each doWork (according to the thread it is in)
 long runAmntT0 = 1; // Thread 0 runs doWork() 1 time
 long runAmntT1 = 2; // Thread 1 runs doWork() 2 times
-long runAmntT2 = 400000000000000000; // Thread 2 runs doWork() 4 times
+long runAmntT2 = 4; // Thread 2 runs doWork() 4 times
 long runAmntT3 = 16; // Thread 3 runs doWork() 16 times
 
 // Times to run each doWork (according to the thread it is in)
@@ -34,8 +36,20 @@ int periodT1 = 2; // Thread 1 runs doWork() 2 times
 int periodT2 = 4; // Thread 2 runs doWork() 4 times
 int periodT3 = 16; // Thread 3 runs doWork() 16 times
 
+///////////////
+// Timing
+///////////////
+
 // Frame period for scheduler
 int framePeriod = 16;
+
+// Program period
+int programPeriod = 10;
+
+int nanosecondConversion = 1000000; // This is equal to 1 ms
+int periodUnitMS = 10; // 1 unit of time, according to project directions
+
+////////////////////////////////////////////
 
 // Counters for each thread
 int counterT0;
@@ -59,11 +73,12 @@ sched_param param4;
 
 // Pthreads
 pthread_t schedulerThread;
-/*
-pthread_t T0;
-pthread_t T1;
-pthread_t T2;
-pthread_t T3; */
+
+// Pthreads for the scheduler. Initially set to 0 (if they exist, you must check to see if they have hit an overrun condition via a flag)
+pthread_t T0 = 0;
+pthread_t T1 = 0;
+pthread_t T2 = 0;
+pthread_t T3 = 0;
 
 //CPU
 cpu_set_t cpu;
@@ -153,12 +168,6 @@ void *run_thread(void * param) {
 //////////////////////////////////////
 
 void *scheduler(void * param) {
-
-    // Pthreads for the scheduler. Initially set to 0 (if they exist, you must check to see if they have hit an overrun condition via a flag)
-    pthread_t T0 = 0;
-    pthread_t T1 = 0;
-    pthread_t T2 = 0;
-    pthread_t T3 = 0;
 
     for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
         sleep(1);
@@ -310,6 +319,18 @@ int main() {
     tValArr[2].semaphore = &sem3;
     tValArr[3].semaphore = &sem4;
 
+
+    sigevent sig;
+
+    timer_t intervalTimer;
+    itimerspec its;
+
+    sig.sigev_notify = SIGEV_NONE;
+    its.it_value.tv_nsec = periodUnitMS*programPeriod*framePeriod*nanosecondConversion; // Expiration time
+    its.it_interval.tv_nsec = its.it_value.tv_nsec; // Same as above and it repeats
+
+    timer_create(CLOCK_REALTIME, &sig, &intervalTimer);
+
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
 
@@ -317,6 +338,8 @@ int main() {
     // while (timer < 160*100 ms)
     //
     //      sem_post(&semScheduler)
+
+    timer_settime(intervalTimer, 0, &its, nullptr);
 
     // Join scheduler thread at end of program execution
     pthread_join(schedulerThread, nullptr);
