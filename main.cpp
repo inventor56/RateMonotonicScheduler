@@ -204,29 +204,37 @@ void *scheduler(void * param) {
             //Wait for the timer to signal for the thread to schedule(every 1 unit period)
             sem_wait(&semScheduler);
 
-            // Check for any previous overruns
-            overrunCheck(&firstRun);
-
-            // Make sure that if the scheduler just started, we don't check for overruns immediately
-            if(firstRun)
-                firstRun = false;
-
             //if(periodTime is  at 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
+
+            if (!firstRun && !(*tValArr[0].finished).load())
+                missedDeadlineT0++;
             // Post to the respective semaphore, and allow execution of T0
             sem_post(&sem1);
             if (periodTime == 0 || periodTime == 2 || periodTime == 4 || periodTime == 6 || periodTime == 8 ||
                 periodTime == 10 || periodTime == 12 || periodTime == 14) { //0,2,4,6,8,10,12,14 (8 times)
+                    if (!firstRun && !(*tValArr[1].finished).load())
+                        missedDeadlineT1++;
                 // Post to the respective semaphore, and allow execution of T1
                 sem_post(&sem2);
             }
             if (periodTime == 0 || periodTime == 4 || periodTime == 8 || periodTime == 12) { //0,4,8,12 (4 times)
+
+                if (!firstRun && !(*tValArr[2].finished).load())
+                    missedDeadlineT2++;
                 // Post to the respective semaphore, and allow execution of T2
                 sem_post(&sem3);
             }
             if (periodTime == 0) { //0 (1 time)
+
+                if (!firstRun && !(*tValArr[3].finished).load())
+                    missedDeadlineT3++;
                 // Post to the respective semaphore, and allow execution of T3
                 sem_post(&sem4);
             }
+
+            // Make sure that if the scheduler just started, we don't check for overruns immediately
+            if(firstRun)
+                firstRun = false;
         }
     }
 
@@ -439,10 +447,10 @@ int main() {
     cout << "T3 Ran " << counterT3 << " Times\n" << endl;
 
     // Print out results
-    cout << "T1 had " << missedDeadlineT0 << " missed deadlines" << endl;
-    cout << "T2 had " << missedDeadlineT1 << " missed deadlines" << endl;
-    cout << "T3 had " << missedDeadlineT2 << " missed deadlines" << endl;
-    cout << "T4 had " << missedDeadlineT3 << " missed deadlines" << endl;
+    cout << "T0 had " << missedDeadlineT0 << " missed deadlines" << endl;
+    cout << "T1 had " << missedDeadlineT1 << " missed deadlines" << endl;
+    cout << "T2 had " << missedDeadlineT2 << " missed deadlines" << endl;
+    cout << "T3 had " << missedDeadlineT3 << " missed deadlines" << endl;
 
     return 0;
 }
