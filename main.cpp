@@ -127,9 +127,9 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
     }
 }
 
-//////////////////////////////
-// Timer Handling
-//////////////////////////////
+////////////////////////////////////////////////////////////
+// Timer Handling - Wakes scheduler up periodically
+////////////////////////////////////////////////////////////
 
 // Posts semaphore following time restrictions
 void timerHandler(int sig, siginfo_t *si, void *uc )
@@ -189,30 +189,32 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
-    for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
-        sem_wait(&semScheduler);
-        //sem_wait(&semScheduler); // Wait until timer kicks in
+    for (int schedulerPeriod = 0; schedulerPeriod < programPeriod; schedulerPeriod++) {
+        for (int periodTime = 0; periodTime < framePeriod; periodTime++) {
+            sem_wait(&semScheduler);
+            //sem_wait(&semScheduler); // Wait until timer kicks in
 
-        // Check flags and see if there are any overruns
-        //if(T0 != 0 && )
+            // Check flags and see if there are any overruns
+            //if(T0 != 0 && )
             //cout << "eurakeua first time" << endl;
 
-        //if(periodTime % ) 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
-        // Post to the respective semaphore, and allow execution of T0
-        sem_post(&sem1);
-        if(periodTime == 0 || periodTime == 2 || periodTime == 4 || periodTime == 6 || periodTime == 8 || periodTime == 10 || periodTime == 12 || periodTime == 14) { //0,2,4,6,8,10,12,14 (8 times)
-            // Post to the respective semaphore, and allow execution of T1
-            sem_post(&sem2);
+            //if(periodTime % ) 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
+            // Post to the respective semaphore, and allow execution of T0
+            sem_post(&sem1);
+            if (periodTime == 0 || periodTime == 2 || periodTime == 4 || periodTime == 6 || periodTime == 8 ||
+                periodTime == 10 || periodTime == 12 || periodTime == 14) { //0,2,4,6,8,10,12,14 (8 times)
+                // Post to the respective semaphore, and allow execution of T1
+                sem_post(&sem2);
+            }
+            if (periodTime == 0 || periodTime == 4 || periodTime == 8 || periodTime == 12) { //0,4,8,12 (4 times)
+                // Post to the respective semaphore, and allow execution of T2
+                sem_post(&sem3);
+            }
+            if (periodTime == 0) { //0 (1 time)
+                // Post to the respective semaphore, and allow execution of T3
+                sem_post(&sem4);
+            }
         }
-        if(periodTime == 0 || periodTime == 4 || periodTime == 8 || periodTime == 12) { //0,4,8,12 (4 times)
-            // Post to the respective semaphore, and allow execution of T2
-            sem_post(&sem3);
-        }
-        if(periodTime == 0) { //0 (1 time)
-            // Post to the respective semaphore, and allow execution of T3
-            sem_post(&sem4);
-        }
-
     }
 
     /* Kick off all four threads
@@ -369,10 +371,10 @@ int main() {
     sig.sigev_signo = sigNo;
     sig.sigev_value.sival_ptr = nullptr;
 
-    its.it_value.tv_sec = 1;
-    its.it_value.tv_nsec = 0; // Expiration time  oneUnitOfTime
-    its.it_interval.tv_sec = 1;
-    its.it_interval.tv_nsec = 0; // Same as above and it repeats  its.it_value.tv_nsec
+    its.it_value.tv_sec = 0;
+    its.it_value.tv_nsec = oneUnitOfTime; // Expiration time  oneUnitOfTime
+    its.it_interval.tv_sec = 0;
+    its.it_interval.tv_nsec = its.it_value.tv_nsec; // Same as above and it repeats  its.it_value.tv_nsec
 
     //Create Timer
     timer_create(CLOCK_REALTIME, &sig, &unitTimer);
