@@ -146,17 +146,16 @@ void timerHandler(int sig, siginfo_t *si, void *uc )
 
 void *run_thread(void * param) {
 
-    /*struct threadValues *passedInValues;
-    passedInValues = (threadValues*) param; */
     bool test = true;
     //auto time1 = chrono::high_resolution_clock::now();
 
-    while(true) {
+    while(test) {
         sem_wait(((threadValues*)param)->semaphore);
         for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
             doWork(); // Do busy work
         }
         *((threadValues*)param)->counter += 1; //Increment respective counter
+        // Say thread complete, with a flag?
 
         // We don't want to have the sleep here, this is just for testing purposes
         //sleep(1);
@@ -191,12 +190,11 @@ void *scheduler(void * param) {
 
     for (int schedulerPeriod = 0; schedulerPeriod < programPeriod; schedulerPeriod++) { // Runs 10 periods
         for (int periodTime = 0; periodTime < framePeriod; periodTime++) { // Runs 16 periods
+            //Wait for the timer to signal for the thread to schedule(every 1 unit period)
             sem_wait(&semScheduler);
-            //sem_wait(&semScheduler); // Wait until timer kicks in
 
             // Check flags and see if there are any overruns
-            //if(T0 != 0 && )
-            //cout << "eurakeua first time" << endl;
+            //if(T0 != 0 &&)
 
             //if(periodTime is  at 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
             // Post to the respective semaphore, and allow execution of T0
@@ -216,16 +214,6 @@ void *scheduler(void * param) {
             }
         }
     }
-
-    /* Kick off all four threads
-    int tid0 = pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
-
-
-    int tid1 = pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
-
-    int tid2 = pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
-
-    int tid3 = pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]); */
 
     pthread_exit(nullptr);
 }
