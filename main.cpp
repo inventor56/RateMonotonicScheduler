@@ -6,14 +6,27 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <atomic>
 #include <time.h>
 #include <stdlib.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <mutex>
 
 using namespace std;
 // Rate Monotonic Scheduler
 
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Boolean for Program End / Mutexes for protecting shared data (overrun count updating)
+//////////////////////////////////////////////////////////////////////////////////////////
+pthread_mutex_t overrunMutexT0 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t overrunMutexT1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t overrunMutexT2 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t overrunMutexT3 = PTHREAD_MUTEX_INITIALIZER;
+
+bool program_over = false; // Checks if the program should end
 
 ///////////////////////////////////
 // Variables for program execution
@@ -53,13 +66,20 @@ int periodUnitMS = 10; // 1 unit of time, according to project directions
 
 int runtimeTracker = 0; // Keeps track of how many units of time have gone by for the scheduling program
 
-////////////////////////////////////////////
-
+//////////////////////////////////////////////
+// Counter, Deadline trackers, Thread Params
+//////////////////////////////////////////////
 // Counters for each thread
 int counterT0;
 int counterT1;
 int counterT2;
 int counterT3;
+
+// Running or not (for threads)
+bool runningT0;
+bool runningT1;
+bool runningT2;
+bool runningT3;
 
 // Missed deadlines for each thread
 int missedDeadlineT0;
@@ -106,6 +126,7 @@ struct threadValues {
     long* runAmount;
     int* counter;
     sem_t* semaphore;
+    bool* running;
 };
 
 // Specific struct for this program;
@@ -145,40 +166,18 @@ void timerHandler(int sig, siginfo_t *si, void *uc )
 //////////////////////////////////////
 
 void *run_thread(void * param) {
-
-    bool test = true;
     //auto time1 = chrono::high_resolution_clock::now();
 
-    while(test) {
+    while(!program_over) {
         sem_wait(((threadValues*)param)->semaphore);
+        //*((threadValues*)param)->running = true; // Thread is running
         for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
             doWork(); // Do busy work
         }
+        //*((threadValues*)param)->running = false; // Thread is not running
         *((threadValues*)param)->counter += 1; //Increment respective counter
-        // Say thread complete, with a flag?
 
-        // We don't want to have the sleep here, this is just for testing purposes
-        //sleep(1);
-        /*
-        if (*((threadValues*)param)->runAmount == runAmntT0)
-            cout << "This thread is T0. It is running on CPU: " << sched_getcpu() << endl;
-        if (*((threadValues*)param)->runAmount == runAmntT1)
-            cout << "This thread is T1. It is running on CPU: "  << sched_getcpu() << endl;
-        if (*((threadValues*)param)->runAmount == runAmntT2)
-            cout << "This thread is T2. It is running on CPU: "  << sched_getcpu() << endl;
-        if (*((threadValues*)param)->runAmount == runAmntT3)
-            cout << "This thread is T3. It is running on CPU: " << sched_getcpu() << endl;
-        */
-        /*
-        auto time2 = chrono::high_resolution_clock::now();
-        auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-        chrono::duration<double, milli> fms_conversion = (time2 - time1);
-        cout << wms_conversion.count() << " whole seconds" << endl;
-        cout << fms_conversion.count() << " milliseconds" << endl; */
     }
-
-
-
     pthread_exit(nullptr);
 }
 
@@ -193,8 +192,16 @@ void *scheduler(void * param) {
             //Wait for the timer to signal for the thread to schedule(every 1 unit period)
             sem_wait(&semScheduler);
 
+            /*
             // Check flags and see if there are any overruns
-            //if(T0 != 0 &&)
+            if (T0 != 0 && !(*tValArr[0].running));
+                missedDeadlineT0++;
+            if (T1 != 0 && !(*tValArr[1].running));
+                missedDeadlineT1++;
+            if (T2 != 0 && !(*tValArr[2].running));
+                missedDeadlineT2++;
+            if (T3 != 0 && !(*tValArr[3].running));
+                missedDeadlineT3++; */
 
             //if(periodTime is  at 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
             // Post to the respective semaphore, and allow execution of T0
@@ -241,6 +248,12 @@ int main() {
     counterT1 = 0;
     counterT2 = 0;
     counterT3 = 0;
+
+    runningT0 = false;
+    runningT1 = false;
+    runningT2 = false;
+    runningT3 = false;
+
 
     // Initialize deadlines
     missedDeadlineT0 = 0;
@@ -314,6 +327,12 @@ int main() {
     tValArr[2].semaphore = &sem3;
     tValArr[3].semaphore = &sem4;
 
+    // Boolean
+    tValArr[0].running = &runningT0;
+    tValArr[1].running = &runningT1;
+    tValArr[2].running = &runningT2;
+    tValArr[3].running = &runningT3;
+
 
 
 
@@ -326,13 +345,6 @@ int main() {
 
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
-
-    // Start timer
-    // while (timer < 160*100 ms)
-    //
-    //      sem_post(&semScheduler)
-
-    //timer_settime(intervalTimer, 0, &its, nullptr);
 
 
     ////////////////////////
@@ -376,12 +388,20 @@ int main() {
     ///////////////////////////////////////////////////////
     pthread_join(schedulerThread, nullptr);
 
+    program_over = true; // program is done
+
 
     // Print out results
     cout << "T0 Ran " << counterT0 << " Times" << endl;
     cout << "T1 Ran " << counterT1 << " Times" << endl;
     cout << "T2 Ran " << counterT2 << " Times" << endl;
-    cout << "T3 Ran " << counterT3 << " Times" << endl;
+    cout << "T3 Ran " << counterT3 << " Times\n" << endl;
+
+    // Print out results
+    cout << "T1 had " << missedDeadlineT0 << " missed deadlines" << endl;
+    cout << "T2 had " << missedDeadlineT1 << " missed deadlines" << endl;
+    cout << "T3 had " << missedDeadlineT0 << " missed deadlines" << endl;
+    cout << "T4 had " << missedDeadlineT1 << " missed deadlines" << endl;
 
     return 0;
 }
