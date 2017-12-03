@@ -155,7 +155,6 @@ void timerHandler(int sig, siginfo_t *si, void *uc )
     sem_post(&semScheduler);
 }
 
-
 //////////////////////////////////////
 // Threading Function
 //////////////////////////////////////
@@ -177,6 +176,21 @@ void *run_thread(void * param) {
     pthread_exit(nullptr);
 }
 
+/////////////////////////////////////////////////
+// Overrun Checking Function
+/////////////////////////////////////////////////
+bool overrunCheck(bool* firstRunBool) {
+    // Check atomic flags and see if there are any overruns
+    if (!*firstRunBool && !(*tValArr[0].finished).load())
+        missedDeadlineT0++;
+    if (!*firstRunBool && !(*tValArr[1].finished).load())
+        missedDeadlineT1++;
+    if (!*firstRunBool && !(*tValArr[2].finished).load())
+        missedDeadlineT2++;
+    if (!*firstRunBool && !(*tValArr[3].finished).load())
+        missedDeadlineT3++;
+}
+
 //////////////////////////////////////
 // Rate Monotonic Scheduler
 //////////////////////////////////////
@@ -191,15 +205,8 @@ void *scheduler(void * param) {
             //Wait for the timer to signal for the thread to schedule(every 1 unit period)
             sem_wait(&semScheduler);
 
-            // Check atomic flags and see if there are any overruns
-            if (!firstRun && !(*tValArr[0].finished).load())
-                missedDeadlineT0++;
-            if (!firstRun && !(*tValArr[1].finished).load())
-                missedDeadlineT1++;
-            if (!firstRun && !(*tValArr[2].finished).load())
-                missedDeadlineT2++;
-            if (!firstRun && !(*tValArr[3].finished).load())
-                missedDeadlineT3++;
+            // Check for any previous overruns
+            overrunCheck(&firstRun);
 
             // Make sure that if the scheduler just started, we don't check for overruns immediately
             if(firstRun)
@@ -223,6 +230,9 @@ void *scheduler(void * param) {
             }
         }
     }
+
+    // One last overrun check
+    overrunCheck(&firstRun);
 
     pthread_exit(nullptr);
 }
@@ -384,8 +394,8 @@ int main() {
     ///////////////////////////////////////////////////////
     pthread_join(schedulerThread, nullptr);
 
-    program_over = true; // program is done
 
+    program_over = true; // program is done
 
     // Print out results
     cout << "T0 Ran " << counterT0 << " Times" << endl;
@@ -396,8 +406,8 @@ int main() {
     // Print out results
     cout << "T1 had " << missedDeadlineT0 << " missed deadlines" << endl;
     cout << "T2 had " << missedDeadlineT1 << " missed deadlines" << endl;
-    cout << "T3 had " << missedDeadlineT0 << " missed deadlines" << endl;
-    cout << "T4 had " << missedDeadlineT1 << " missed deadlines" << endl;
+    cout << "T3 had " << missedDeadlineT2 << " missed deadlines" << endl;
+    cout << "T4 had " << missedDeadlineT3 << " missed deadlines" << endl;
 
     return 0;
 }
