@@ -239,6 +239,33 @@ void *scheduler(void * param) {
 
 int main() {
 
+    /////////////////////////////////////
+    // Prompt user for test case || exit
+    /////////////////////////////////////
+    cout << "Hello and welcome to the Rate Monotonic Scheduler Application." << endl;
+    cout << "For Nominal Test Case, enter 1." << endl;
+    cout << "For T1 Overrun Test Case, enter 2." << endl;
+    cout << "For T2 Overrun Test Case, enter 3." << endl;
+    cout << "Enter anything else to exit application.\n" << endl;
+    cout << "Please enter your test case number: ";
+    int testCase;
+    cin >> testCase;
+
+    // Check test case
+    if (testCase == 1) {
+        // No need to change anything. Start program execution
+    }
+    else if (testCase == 2) {
+        runAmntT1 = 200000000000000000;
+    }
+    else if (testCase == 3)
+        runAmntT2 = 4000000000000000000;
+    else {
+        exit(1);
+    }
+
+
+
     // Initialize do work matrix
     for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
