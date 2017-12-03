@@ -14,13 +14,13 @@
 #include <mutex>
 
 using namespace std;
+
 // Rate Monotonic Scheduler
 
-
-
 //////////////////////////////////////////////////////////////////////////////////////////
-// Boolean for Program End / Mutexes for protecting shared data (overrun count updating)
+// Atomic Flags for protecting shared data (overrun count updating)
 //////////////////////////////////////////////////////////////////////////////////////////
+
 atomic<bool> threadT0Finished(false);
 atomic<bool> threadT1Finished(false);
 atomic<bool> threadT2Finished(false);
@@ -56,11 +56,10 @@ int periodT3 = 16; // Thread 3 runs doWork() 16 times
 // Timing
 ///////////////
 
-// Frame period for scheduler
-int framePeriod = 16;
 
-// Program period
-int programPeriod = 10;
+int framePeriod = 16; // Frame period for scheduler
+
+int programPeriod = 10; // Program period
 
 int nanosecondConversion = 1000000; // This is equal to 1 ms
 int periodUnitMS = 10; // 1 unit of time, according to project directions
@@ -150,9 +149,8 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
 // Posts semaphore following time restrictions
 void timerHandler(int sig, siginfo_t *si, void *uc )
 {
-    runtimeTracker++; // increment tracker
-    //cout << "Time going now" << endl;
-    sem_post(&semScheduler);
+    runtimeTracker++; // Increment tracker
+    sem_post(&semScheduler); // Unlock semaphore to allow thread to execute it's doWork() function
 }
 
 //////////////////////////////////////
@@ -165,11 +163,11 @@ void *run_thread(void * param) {
     while(!program_over) {
         sem_wait(((threadValues*)param)->semaphore);
 
-        *((threadValues*)param)->finished = false; // Thread is finished
+        *((threadValues*)param)->finished = false; // Thread is not finished
         for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
             doWork(); // Do busy work
         }
-        *((threadValues*)param)->finished = true; // Thread is not finished
+        *((threadValues*)param)->finished = true; // Thread is finished
         *((threadValues*)param)->counter += 1; //Increment respective counter
 
     }
@@ -179,6 +177,7 @@ void *run_thread(void * param) {
 /////////////////////////////////////////////////
 // Overrun Checking Function
 /////////////////////////////////////////////////
+
 bool overrunCheck(bool* firstRunBool) {
     // Check atomic flags and see if there are any overruns
     if (!*firstRunBool && !(*tValArr[0].finished).load())
@@ -242,6 +241,7 @@ int main() {
     /////////////////////////////////////
     // Prompt user for test case || exit
     /////////////////////////////////////
+
     cout << "Hello and welcome to the Rate Monotonic Scheduler Application." << endl;
     cout << "For Nominal Test Case, enter 1." << endl;
     cout << "For T1 Overrun Test Case, enter 2." << endl;
@@ -265,6 +265,9 @@ int main() {
     }
 
 
+    /////////////////////////////////////////////////
+    // Program setup and initialization
+    /////////////////////////////////////////////////
 
     // Initialize do work matrix
     for (int i = 0; i < 9; i++) {
@@ -314,7 +317,10 @@ int main() {
     pthread_attr_setaffinity_np(&attr3, sizeof(cpu_set_t), &cpu); // Set processor affinity;
     pthread_attr_setaffinity_np(&attr4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
 
-    // May need to swap these and put them below setschedparam
+    ///////////////////////////////////////
+    // Setting priorities for each thread!
+    ///////////////////////////////////////
+
     param0.__sched_priority = sched_get_priority_max(SCHED_FIFO); // Max Priority for the RMS scheduler (99)
     param1.__sched_priority = 90; // 2nd highest priority
     param2.__sched_priority = 80; // 3rd highest priority
@@ -366,15 +372,11 @@ int main() {
     tValArr[2].finished = &threadT2Finished;
     tValArr[3].finished = &threadT3Finished;
 
-
-
-
     // Create pthreads here in main thread - Semaphores will syncronize them, as the scheduler will dispatch (unlock) each one accordingly
     pthread_create(&T0, &attr1, run_thread, (void *) &tValArr[0]);
     pthread_create(&T1, &attr2, run_thread, (void *) &tValArr[1]);
     pthread_create(&T2, &attr3, run_thread, (void *) &tValArr[2]);
     pthread_create(&T3, &attr4, run_thread, (void *) &tValArr[3]);
-
 
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, nullptr);
@@ -383,6 +385,7 @@ int main() {
     ////////////////////////
     // Set up and run timer
     ///////////////////////
+
     long oneUnitOfTime = nanosecondConversion*periodUnitMS;
     long totalRuntime = oneUnitOfTime*programPeriod*nanosecondConversion; // 1 unit(10 ms) x 16 unit frame period  x 10 unit program period
 
@@ -419,8 +422,13 @@ int main() {
     ///////////////////////////////////////////////////////
     // Join scheduler thread at end of program execution
     ///////////////////////////////////////////////////////
+
     pthread_join(schedulerThread, nullptr);
 
+
+    ///////////////////////////////////////////////////////
+    // Program is terminated
+    ///////////////////////////////////////////////////////
 
     program_over = true; // program is done
 
