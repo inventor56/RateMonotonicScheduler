@@ -21,10 +21,11 @@ using namespace std;
 //////////////////////////////////////////////////////////////////////////////////////////
 // Boolean for Program End / Mutexes for protecting shared data (overrun count updating)
 //////////////////////////////////////////////////////////////////////////////////////////
-pthread_mutex_t overrunMutexT0 = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t overrunMutexT1 = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t overrunMutexT2 = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t overrunMutexT3 = PTHREAD_MUTEX_INITIALIZER;
+atomic<bool> threadT0Finished(false);
+atomic<bool> threadT1Finished(false);
+atomic<bool> threadT2Finished(false);
+atomic<bool> threadT3Finished(false);
+
 
 bool program_over = false; // Checks if the program should end
 
@@ -75,12 +76,6 @@ int counterT1;
 int counterT2;
 int counterT3;
 
-// Running or not (for threads)
-bool runningT0;
-bool runningT1;
-bool runningT2;
-bool runningT3;
-
 // Missed deadlines for each thread
 int missedDeadlineT0;
 int missedDeadlineT1;
@@ -126,7 +121,7 @@ struct threadValues {
     long* runAmount;
     int* counter;
     sem_t* semaphore;
-    bool* running;
+    atomic<bool>* finished;
 };
 
 // Specific struct for this program;
@@ -170,11 +165,12 @@ void *run_thread(void * param) {
 
     while(!program_over) {
         sem_wait(((threadValues*)param)->semaphore);
-        //*((threadValues*)param)->running = true; // Thread is running
+
+        *((threadValues*)param)->finished = false; // Thread is finished
         for (int i = 0; i < *((threadValues*)param)->runAmount; i++) {
             doWork(); // Do busy work
         }
-        //*((threadValues*)param)->running = false; // Thread is not running
+        *((threadValues*)param)->finished = true; // Thread is not finished
         *((threadValues*)param)->counter += 1; //Increment respective counter
 
     }
@@ -187,21 +183,27 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
+    // Check for if first time through for scheduler (used for overrun checking)
+    bool firstRun = true;
+
     for (int schedulerPeriod = 0; schedulerPeriod < programPeriod; schedulerPeriod++) { // Runs 10 periods
         for (int periodTime = 0; periodTime < framePeriod; periodTime++) { // Runs 16 periods
             //Wait for the timer to signal for the thread to schedule(every 1 unit period)
             sem_wait(&semScheduler);
 
-            /*
-            // Check flags and see if there are any overruns
-            if (T0 != 0 && !(*tValArr[0].running));
+            // Check atomic flags and see if there are any overruns
+            if (!firstRun && !(*tValArr[0].finished).load())
                 missedDeadlineT0++;
-            if (T1 != 0 && !(*tValArr[1].running));
+            if (!firstRun && !(*tValArr[1].finished).load())
                 missedDeadlineT1++;
-            if (T2 != 0 && !(*tValArr[2].running));
+            if (!firstRun && !(*tValArr[2].finished).load())
                 missedDeadlineT2++;
-            if (T3 != 0 && !(*tValArr[3].running));
-                missedDeadlineT3++; */
+            if (!firstRun && !(*tValArr[3].finished).load())
+                missedDeadlineT3++;
+
+            // Make sure that if the scheduler just started, we don't check for overruns immediately
+            if(firstRun)
+                firstRun = false;
 
             //if(periodTime is  at 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 (16 times)
             // Post to the respective semaphore, and allow execution of T0
@@ -248,12 +250,6 @@ int main() {
     counterT1 = 0;
     counterT2 = 0;
     counterT3 = 0;
-
-    runningT0 = false;
-    runningT1 = false;
-    runningT2 = false;
-    runningT3 = false;
-
 
     // Initialize deadlines
     missedDeadlineT0 = 0;
@@ -327,11 +323,11 @@ int main() {
     tValArr[2].semaphore = &sem3;
     tValArr[3].semaphore = &sem4;
 
-    // Boolean
-    tValArr[0].running = &runningT0;
-    tValArr[1].running = &runningT1;
-    tValArr[2].running = &runningT2;
-    tValArr[3].running = &runningT3;
+    // Atmoic bool
+    tValArr[0].finished = &threadT0Finished;
+    tValArr[1].finished = &threadT1Finished;
+    tValArr[2].finished = &threadT2Finished;
+    tValArr[3].finished = &threadT3Finished;
 
 
 
